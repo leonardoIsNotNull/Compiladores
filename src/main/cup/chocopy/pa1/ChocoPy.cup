@@ -71,7 +71,7 @@ parser code {:
  * copied to the generated parser to be executed immediately after a reduce
  * operation; that is, when a production rule has been matched. You can name
  * a nonterminal or terminal symbol in a production rule using the colon
- * notation, e.g. expr_stmt ::= expr:e, to get the AST node for the matched
+ * notation, e.g. simple_stmt ::= expr:e, to get the AST node for the matched
  * expression. In the action code, `e` will be a variable of whatever type
  * has been declared for the corresponding nonterminal, such as `Expr`.
  * Therefore, you can construct an AST Node of type `ExprStmt` with `e` in the
@@ -114,6 +114,15 @@ action code {:
         return list;
     }
 
+    /** If ITEM is non-null, appends it to the beginning of LIST.  Then returns
+     *  LIST. */
+    <T> List<T> combine_left(T item, List<T> list) {
+        if (item != null) {
+            list.add(0, item);
+        }
+        return list;
+    }
+
     /** Return a mutable empty list. */
     <T> List<T> empty() {
         return new ArrayList<T>();
@@ -143,8 +152,71 @@ action code {:
  * in actions ( {: ... :} ).
  */
 terminal NEWLINE;
+terminal INDENT;
+terminal DEDENT;
 terminal String PLUS; 
-terminal Integer NUMBER; 
+terminal String MINUS; 
+terminal String TIMES; 
+terminal String DIV; 
+terminal String MOD; 
+terminal String LT; 
+terminal String GT; 
+terminal String LEQ; 
+terminal String GEQ; 
+terminal String EQEQ; 
+terminal String NE; 
+terminal String EQ; 
+terminal String LPAREN; 
+terminal String RPAREN; 
+terminal String LINDEX; 
+terminal String RINDEX; 
+terminal String COMMA; 
+terminal String COLON; 
+terminal String DOT; 
+terminal String ARROW; 
+terminal String IDSTRING; 
+terminal String STRING; 
+terminal Integer INTEGER; 
+terminal String IDENTIFIER; 
+
+
+/* Keywords. */
+terminal String FALSE;
+terminal String NONE;
+terminal String TRUE;
+terminal String AND;
+terminal String AS;
+terminal String ASSERT;
+terminal String ASYNC;
+terminal String AWAIT;
+terminal String BREAK;
+terminal String CLASS;
+terminal String CONTINUE;
+terminal String DEF;
+terminal String DEL;
+terminal String ELIF;
+terminal String ELSE;
+terminal String EXCEPT;
+terminal String FINALLY;
+terminal String FOR;
+terminal String FROM;
+terminal String GLOBAL;
+terminal String IF;
+terminal String IMPORT;
+terminal String IN;
+terminal String IS;
+terminal String LAMBDA;
+terminal String NONLOCAL;
+terminal String NOT;
+terminal String OR;
+terminal String PASS;
+terminal String RAISE;
+terminal String RETURN;
+terminal String TRY;
+terminal String WHILE;
+terminal String WITH;
+terminal String YIELD;
+
 /* Returned by the lexer for erroneous tokens.  Since it does not appear in
  * the grammar, it indicates a syntax error. */
 terminal UNRECOGNIZED;   
@@ -154,15 +226,38 @@ terminal UNRECOGNIZED;
  *     non terminal <type> <identifier1>, ..., <identifiern>; 
  * defines the listed nonterminal identifier symbols to have semantic values
  * of type <type>. */
-non terminal Program           program;
-non terminal List<Declaration> program_head;
-non terminal List<Stmt>        stmt_list, opt_stmt_list;
-non terminal Stmt              stmt, expr_stmt;
-non terminal Expr              expr, binary_expr;
+non terminal Program           program, func_body;
+non terminal Declaration       prog_decl, func_decl, class_decl, global_decl, nonlocal_decl;
+non terminal List<Declaration> class_body, class_decls;
+non terminal List<Stmt>        stmt_list, opt_stmt_list, block;
+non terminal Stmt              stmt, simple_stmt;
+non terminal Expr              expr, cexpr, binary_expr, binary_logical, target, opt_expr;
+non terminal List<Expr>        opt_exprs, exprs;
+non terminal AssignStmt        assign;
+non terminal IfStmt            else_blocks;
+non terminal VarDef            var_def;
+non terminal FuncDef           func_def;
+non terminal ClassDef          class_def;
+non terminal TypedVar          typed_var;
+non terminal List<TypedVar>    opt_params, params;
+non terminal Literal           literal;
+non terminal Identifier        identifier;
+non terminal IndexExpr         index_expr;
+non terminal MemberExpr        member_expr;
+non terminal TypeAnnotation    type_annotation, opt_ret_type;
 
 /* Precedences (lowest to highest) for resolving what would otherwise be
  * ambiguities in the form of shift/reduce conflicts.. */
-precedence left PLUS;
+precedence right IF;
+precedence left OR;
+precedence left AND;
+precedence nonassoc NOT;
+precedence nonassoc EQEQ, NE, LT, GT, LEQ, GEQ, IS;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIV, MOD;
+precedence nonassoc MINUS;
+precedence left DOT, LINDEX;
+
 
 /* The start symbol. */
 start with program;
@@ -170,16 +265,16 @@ start with program;
 
 /*****  GRAMMAR RULES *****/
 
-program ::= program_head:d opt_stmt_list:s
-        {: RESULT = new Program(d.isEmpty() ? getLeft(s) : getLeft(d),
-                                sxright, d, s, errors);
-        :}
-        ;
+program ::= prog_decl:d program:p
+                {: RESULT = new Program(dxleft, pxright, combine_left(d, p.declarations), p.statements, errors);
+                :}
+          | opt_stmt_list:s
+                {: RESULT = new Program(getLeft(s), sxright, empty(), s, errors);
+                :}
+          ;
 
-/* Initial list of declarations. */
-program_head ::= /* not implemented; currently matches empty string */
-                                     {: RESULT = empty(); :}
-                ;
+prog_decl ::= /* TODO: completar os outros casos */ class_def:c        {: RESULT = c; :}
+            ;
 
 opt_stmt_list ::=                    {: RESULT = empty(); :}
                 | stmt_list:s        {: RESULT = s; :}
@@ -195,20 +290,132 @@ stmt_list ::= stmt:s                 {: RESULT = single(s); :}
              * a syntax error. */
             ;
 
-stmt ::= expr_stmt:s NEWLINE {: RESULT = s; :}
-              ;
-
-expr_stmt ::= expr:e    {: RESULT = new ExprStmt(exleft, exright, e); :}
+class_def ::= CLASS:c identifier:n LPAREN:l identifier:s RPAREN:r COLON:o
+              NEWLINE:j INDENT:i class_body:b DEDENT:d
+                 {: RESULT = new ClassDef(cxleft, bxright, n, s, b); :}
             ;
 
-expr ::= binary_expr:e  {: RESULT = e; :}
-       | NUMBER:n       {: RESULT = new IntegerLiteral(nxleft, nxright, n); :}
+class_body ::= PASS:p NEWLINE:n       {:  :}
+             | class_decls:d          {: RESULT = d; :}
+             ;
+
+class_decls ::= class_decl:d                {: RESULT = single(d); :}
+              | class_decls:l class_decl:d  {: RESULT = combine(l, d); :}
+              ;
+
+class_decl ::= var_def:v          {: RESULT = v; :}
+             | func_def:f         {: RESULT = f; :}
+             ;
+
+func_def ::= DEF:d /* TODO: completar */
+           ;
+
+opt_params ::= /* TODO: completar */
+             ;
+
+params ::= /* TODO: completar */
+         ;
+
+opt_ret_type ::= COLON:c                            {: RESULT = new ClassType(cxleft, cxright, "<None>"); :}
+               | ARROW:a type_annotation:t COLON:c  {: RESULT = t; :}
+               ;
+
+func_body ::= func_decl:d func_body:b
+                  {: RESULT = new Program(dxleft, bxright, combine_left(d, b.declarations), b.statements, errors);
+                  :}
+            | stmt_list:l
+                  {: RESULT = new Program(lxleft, lxright, empty(), l, errors);
+                  :}
+            ;
+
+func_decl ::= /* TODO: completar */ var_def:v              {: RESULT = v; :}
+            ;
+
+typed_var ::= /* TODO: completar */
+            ;
+
+type_annotation ::= /* TODO: completar */
+                  ;
+
+global_decl ::= /* TODO: completar */
+              ;
+
+nonlocal_decl ::= /* TODO: completar */
+                ;
+
+var_def ::= typed_var:t EQ:o literal:l NEWLINE:n   {: RESULT = new VarDef(txleft, lxright, t, l); :}
+          ;
+
+stmt ::= simple_stmt:s NEWLINE:n {: RESULT = s; :}
+       | IF:i expr:c COLON:d block:t else_blocks:e    {: if (e.condition != null)
+                                                             RESULT = new IfStmt(ixleft, exright, c, t, single(e));
+                                                         else
+                                                             RESULT = new IfStmt(ixleft, exright, c, t, e.elseBody); :}
+       /* TODO: completar */
        ;
 
-
-/* A binary expression, illustrating how to find the left and right
- * source position of a phrase. */
-binary_expr ::= expr:e1 PLUS:op expr:e2
-                        {: RESULT = new BinaryExpr(e1xleft, e2xright,
-                                                   e1, op, e2); :}
+else_blocks ::=                                              {: RESULT = new IfStmt(null, null, null, null, new ArrayList<Stmt>()); :}
+              | ELSE:o COLON:d block:e                       {: RESULT = new IfStmt(oxleft, exright, null, null, e); :}
+              | ELIF:o expr:c COLON:d block:t else_blocks:e  {: if (e.condition != null)
+                                                                    RESULT = new IfStmt(oxleft, exright, c, t, single(e));
+                                                                else
+                                                                    RESULT = new IfStmt(oxleft, exright, c, t, e.elseBody); :}
               ;
+
+simple_stmt ::= PASS:p                              {:  :}
+              | expr:e                              {: RESULT = new ExprStmt(exleft, exright, e); :}
+              | RETURN:r opt_expr:e                 {: RESULT = new ReturnStmt(rxleft, exright, e); :}
+              | target:t assign:a                   {: RESULT = new AssignStmt(txleft, axright, combine_left(t, a.targets), a.value); :}
+              ;
+
+opt_expr ::= /* TODO: completar */
+           ;
+
+assign ::= EQ:o expr:e                    {: RESULT = new AssignStmt(oxleft, exright, empty(), e); :}
+         | EQ:o target:t assign:a         {: RESULT = new AssignStmt(oxleft, axright, combine_left(t, a.targets), a.value); :}
+         ;
+
+block ::= /* TODO: completar */
+        ;
+
+literal ::= /* TODO: completar */ INTEGER:n        {: RESULT = new IntegerLiteral(nxleft, nxright, n); :}
+          ;
+
+expr ::= cexpr:e                              {: RESULT = e; :}
+       /* TODO: completar */
+       ;
+
+binary_logical ::= /* TODO: completar */
+                 ;
+
+cexpr ::= identifier:e                                {: RESULT = e; :}
+        | literal:e                                   {: RESULT = e; :}
+        | binary_expr:e                               {: RESULT = e; :}
+        /* TODO: completar */
+        ;
+
+identifier ::= IDENTIFIER:i           {: RESULT = new Identifier(ixleft, ixright, i); :}
+             ;
+
+opt_exprs ::=                          {: RESULT = empty(); :}
+            | exprs:l                  {: RESULT = l; :}
+            ;
+
+exprs ::= expr:e                  {: RESULT = single(e); :}
+        | exprs:l COMMA:c expr:e  {: RESULT = combine(l, e); :}
+        ;
+
+
+binary_expr ::= cexpr:e1 PLUS:op cexpr:e2            {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op, e2); :}
+              /* TODO: completar */
+              ;
+
+member_expr ::= /* TODO: completar */
+              ;
+
+index_expr ::= /* TODO: completar */
+             ;
+
+target ::= /* TODO: completar */
+         ;
+
