@@ -391,6 +391,11 @@ binary_logical ::= /* TODO: completar */
 cexpr ::= identifier:e                                {: RESULT = e; :}
         | literal:e                                   {: RESULT = e; :}
         | binary_expr:e                               {: RESULT = e; :}
+        |MINUS:m cexpr:e                              {: RESULT = new UnaryExpr(mxleft,exright,m,e); :}
+        |member_expr:m                                {: RESULT = m; :}
+        |index_expr:index                             {: RESULT = index; :}
+        |identifier:i LPAREN:l exprs:e RPAREN:r     {: RESULT = new CallExpr(ixleft,rxright,i,e); :}
+        |LPAREN:l expr:e RPAREN:r                   {: RESULT = e; :}
         /* TODO: completar */
         ;
 
@@ -410,12 +415,16 @@ binary_expr ::= cexpr:e1 PLUS:op cexpr:e2            {: RESULT = new BinaryExpr(
               /* TODO: completar */
               ;
 
-member_expr ::= /* TODO: completar */
+member_expr ::= cexpr:e DOT:dot identifier:i          {:new MemberExpr(exleft,ixright,e,i);:}
+            /* TODO: completar */
               ;
 
-index_expr ::= /* TODO: completar */
+index_expr ::= cexpr:e identifier:i {:new IndexExpr(exleft,ixright,e,i);:}
              ;
 
-target ::= /* TODO: completar */
+target ::= identifier:i             {:RESULT=i;:}
+           |index_expr:index        {:RESULT=index;:}
+           |member_expr:e           {:RESULT=e;:}
+            /* TODO: completar */
          ;
 
