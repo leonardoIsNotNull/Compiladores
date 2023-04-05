@@ -67,13 +67,13 @@ LineBreak  = \r|\n|\r\n
 
 IntegerLiteral = 0 | [1-9][0-9]*
 
-StringLiteral = TODO /* expressão regular para representar uma string literal, como "Hello world" */
+StringLiteral = \"([^\"\\\n]|(\\.))*\"
 
 Identifier = [a-zA-Z_$][a-zA-Z0-9_$]*
 
-Comment = TODO /* expressão regular para representar um comentário, como # comment */
+Comment = [/\*].*[\*/]
 
-EmptyLine = TODO /* expressão regular para representar uma linha que só tem caracteres em branco */
+EmptyLine = (\s | \t)*
 
 Indentation = [ \t]*.
 
@@ -136,10 +136,20 @@ Indentation = [ \t]*.
   /* Operators. */
   "+"                         { return symbol(ChocoPyTokens.PLUS, yytext()); }
   "-"                         { return symbol(ChocoPyTokens.MINUS, yytext()); }
-  "/"                         { return symbol(ChocoPyTokens.DIV, yytext()); }
   "*"                         { return symbol(ChocoPyTokens.TIMES, yytext()); }
+  "/"                         { return symbol(ChocoPyTokens.DIV, yytext()); }
   "%"                         { return symbol(ChocoPyTokens.MOD, yytext()); }
+  "<"                         { return symbol(ChocoPyTokens.LT, yytext()); }
+  ">"                         { return symbol(ChocoPyTokens.GT, yytext()); }
+  "<="                        { return symbol(ChocoPyTokens.LEQ, yytext()); }
+  ">="                        { return symbol(ChocoPyTokens.GEQ, yytext()); }
+  "=="                        { return symbol(ChocoPyTokens.EQEQ, yytext()); }
+  "!="                        { return symbol(ChocoPyTokens.NE, yytext()); }
   "="                         { return symbol(ChocoPyTokens.EQ, yytext()); }
+  ","                         { return symbol(ChocoPyTokens.COMMA, yytext()); }
+  ":"                         { return symbol(ChocoPyTokens.COLON, yytext()); }
+  "."                         { return symbol(ChocoPyTokens.DOT, yytext()); }
+  "->"                        { return symbol(ChocoPyTokens.ARROW, yytext()); }
   /* TODO: adicionar todos os operadores */
 
   /* Delimiters. */
@@ -154,41 +164,41 @@ Indentation = [ \t]*.
 
 
   /* Keywords. */
-  "False"			{ return symbol(ChocoPyTokens.FALSE, yytext()); }
-  "true"			{ return symbol(ChocoPyTokens.TRUE, yytext()); }
-  "none"			{ return symbol(ChocoPyTokens.NONE, yytext()); }
-  "and"			    { return symbol(ChocoPyTokens.AND, yytext()); }
-  "as"			    { return symbol(ChocoPyTokens.AS, yytext()); }
-  "assert"			{ return symbol(ChocoPyTokens.ASSERT, yytext()); }
-  "async"			{ return symbol(ChocoPyTokens.ASYNC, yytext()); }
-  "await"			{ return symbol(ChocoPyTokens.AWAIT, yytext()); }
-  "break"			{ return symbol(ChocoPyTokens.BREAK, yytext()); }
-  "class"			{ return symbol(ChocoPyTokens.CLASS, yytext()); }
-  "continue"		{ return symbol(ChocoPyTokens.CONTINUE, yytext()); }
-  "def"			    { return symbol(ChocoPyTokens.DEF, yytext()); }
-  "del"			    { return symbol(ChocoPyTokens.DEL, yytext()); }
-  "elif"			{ return symbol(ChocoPyTokens.ELIF, yytext()); }
-  "else"			{ return symbol(ChocoPyTokens.ELSE, yytext()); }
-  "except"			{ return symbol(ChocoPyTokens.EXCEPT, yytext()); }
-  "finally"			{ return symbol(ChocoPyTokens.FINALLY, yytext()); }
-  "for"			    { return symbol(ChocoPyTokens.FOR, yytext()); }
-  "from"			{ return symbol(ChocoPyTokens.FROM, yytext()); }
-  "global"			{ return symbol(ChocoPyTokens.GLOBAL, yytext()); }
-  "if"			    { return symbol(ChocoPyTokens.IF, yytext()); }
-  "import"			{ return symbol(ChocoPyTokens.IMPORT, yytext()); }
-  "in"			    { return symbol(ChocoPyTokens.IN, yytext()); }
-  "is"			    { return symbol(ChocoPyTokens.IS, yytext()); }
-  "lambda"			{ return symbol(ChocoPyTokens.LAMBDA, yytext()); }
-  "nonlocal"		{ return symbol(ChocoPyTokens.NONLOCAL, yytext()); }
-  "not"			    { return symbol(ChocoPyTokens.NOT, yytext()); }
-  "or"			    { return symbol(ChocoPyTokens.OR, yytext()); }
-  "pass"			{ return symbol(ChocoPyTokens.PASS, yytext()); }
-  "raise"			{ return symbol(ChocoPyTokens.RAISE, yytext()); }
-  "return"			{ return symbol(ChocoPyTokens.RETURN, yytext()); }
-  "try"			    { return symbol(ChocoPyTokens.TRY, yytext()); }
-  "while"			{ return symbol(ChocoPyTokens.WHILE, yytext()); }
-  "with"			{ return symbol(ChocoPyTokens.WITH, yytext()); }
-  "yield"			{ return symbol(ChocoPyTokens.YIELD, yytext()); }
+    "False"                     { return symbol(ChocoPyTokens.FALSE, yytext()); }
+    "None"                      { return symbol(ChocoPyTokens.NONE, yytext()); }
+    "True"                      { return symbol(ChocoPyTokens.TRUE, yytext()); }
+    "and"                       { return symbol(ChocoPyTokens.AND); }
+    "as"                        { return symbol(ChocoPyTokens.AS); }
+    "assert"                    { return symbol(ChocoPyTokens.ASSERT); }
+    "async"                     { return symbol(ChocoPyTokens.ASYNC); }
+    "await"                     { return symbol(ChocoPyTokens.AWAIT); }
+    "break"                     { return symbol(ChocoPyTokens.BREAK); }
+    "class"                     { return symbol(ChocoPyTokens.CLASS); }
+    "continue"                  { return symbol(ChocoPyTokens.CONTINUE); }
+    "def"                       { return symbol(ChocoPyTokens.DEF); }
+    "del"                       { return symbol(ChocoPyTokens.DEL); }
+    "elif"                      { return symbol(ChocoPyTokens.ELIF); }
+    "else"                      { return symbol(ChocoPyTokens.ELSE); }
+    "except"                    { return symbol(ChocoPyTokens.EXCEPT); }
+    "finally"                   { return symbol(ChocoPyTokens.FINALLY); }
+    "for"                       { return symbol(ChocoPyTokens.FOR); }
+    "from"                      { return symbol(ChocoPyTokens.FROM); }
+    "global"                    { return symbol(ChocoPyTokens.GLOBAL); }
+    "if"                        { return symbol(ChocoPyTokens.IF); }
+    "import"                    { return symbol(ChocoPyTokens.IMPORT); }
+    "in"                        { return symbol(ChocoPyTokens.IN); }
+    "is"                        { return symbol(ChocoPyTokens.IS); }
+    "lambda"                    { return symbol(ChocoPyTokens.LAMBDA); }
+    "nonlocal"                  { return symbol(ChocoPyTokens.NONLOCAL); }
+    "not"                       { return symbol(ChocoPyTokens.NOT); }
+    "or"                        { return symbol(ChocoPyTokens.OR); }
+    "pass"                      { return symbol(ChocoPyTokens.PASS); }
+    "raise"                     { return symbol(ChocoPyTokens.RAISE); }
+    "return"                    { return symbol(ChocoPyTokens.RETURN); }
+    "try"                       { return symbol(ChocoPyTokens.TRY); }
+    "while"                     { return symbol(ChocoPyTokens.WHILE); }
+    "with"                      { return symbol(ChocoPyTokens.WITH); }
+    "yield"                     { return symbol(ChocoPyTokens.YIELD); }
   /* TODO: adicionar as keywords */
 
 

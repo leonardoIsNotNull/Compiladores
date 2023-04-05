@@ -163,21 +163,21 @@ terminal String LT;
 terminal String GT; 
 terminal String LEQ; 
 terminal String GEQ; 
-terminal String EQEQ; 
-terminal String NE; 
-terminal String EQ; 
-terminal String LPAREN; 
-terminal String RPAREN; 
-terminal String LINDEX; 
-terminal String RINDEX; 
-terminal String COMMA; 
-terminal String COLON; 
-terminal String DOT; 
-terminal String ARROW; 
-terminal String IDSTRING; 
-terminal String STRING; 
-terminal Integer INTEGER; 
-terminal String IDENTIFIER; 
+terminal String EQEQ;
+terminal String NE;
+terminal String EQ;
+terminal String LPAREN;
+terminal String RPAREN;
+terminal String LINDEX;
+terminal String RINDEX;
+terminal String COMMA;
+terminal String COLON;
+terminal String DOT;
+terminal String ARROW;
+terminal String IDSTRING;
+terminal String STRING;
+terminal Integer INTEGER;
+terminal String IDENTIFIER;
 
 
 /* Keywords. */
@@ -219,11 +219,11 @@ terminal String YIELD;
 
 /* Returned by the lexer for erroneous tokens.  Since it does not appear in
  * the grammar, it indicates a syntax error. */
-terminal UNRECOGNIZED;   
+terminal UNRECOGNIZED;
 
 /* Nonterminal symbols (defined in production rules below).
- * As for terminal symbols, 
- *     non terminal <type> <identifier1>, ..., <identifiern>; 
+ * As for terminal symbols,
+ *     non terminal <type> <identifier1>, ..., <identifiern>;
  * defines the listed nonterminal identifier symbols to have semantic values
  * of type <type>. */
 non terminal Program           program, func_body;
@@ -273,7 +273,9 @@ program ::= prog_decl:d program:p
                 :}
           ;
 
-prog_decl ::= /* TODO: completar os outros casos */ class_def:c        {: RESULT = c; :}
+prog_decl ::=   class_def:c        {: RESULT = c; :}
+                | func_def:f       {: RESULT = f; :}
+                | var_def:v        {: RESULT = v; :}
             ;
 
 opt_stmt_list ::=                    {: RESULT = empty(); :}
@@ -307,13 +309,25 @@ class_decl ::= var_def:v          {: RESULT = v; :}
              | func_def:f         {: RESULT = f; :}
              ;
 
-func_def ::= DEF:d /* TODO: completar */
+func_def ::= DEF:def identifier:id
+             LPAREN opt_params:params RPAREN:rp opt_ret_type:r NEWLINE
+             INDENT func_body:fb DEDENT
+                    {: RESULT = new FuncDef(defxleft,
+                                            fbxright,
+                                            id,
+                                            params,
+                                            r,
+                                            fb.declarations,
+                                            fb.statements); :}
            ;
 
-opt_params ::= /* TODO: completar */
+opt_params ::= {: RESULT = empty(); :}
+               | params:pr                    {: RESULT = pr; :}
+               | LPAREN:l params:pr RPAREN:r   {: RESULT = pr; :}
              ;
 
-params ::= /* TODO: completar */
+params ::= typed_var:tv                           {: RESULT = single(tv); :}
+           | params:l COMMA:c typed_var:v  {: RESULT = combine(l, v); :}
          ;
 
 opt_ret_type ::= COLON:c                            {: RESULT = new ClassType(cxleft, cxright, "<None>"); :}
@@ -328,19 +342,24 @@ func_body ::= func_decl:d func_body:b
                   :}
             ;
 
-func_decl ::= /* TODO: completar */ var_def:v              {: RESULT = v; :}
+func_decl ::= var_def:v            {: RESULT = v; :}
+            | func_def:f           {: RESULT = f; :}
+            | global_decl:g        {: RESULT = g; :}
+            | nonlocal_decl:n      {: RESULT = n; :}
             ;
 
-typed_var ::= /* TODO: completar */
+typed_var ::= identifier:i COLON:c type_annotation:t                 {: RESULT = new TypedVar(ixleft, txright, i, t); :}
             ;
 
-type_annotation ::= /* TODO: completar */
+type_annotation ::= IDENTIFIER:i                            {: RESULT = new ClassType(ixleft, ixright, i); :}
+                    | IDSTRING:s                            {: RESULT = new ClassType(sxleft, sxright, s); :}
+                    | LINDEX:l type_annotation: ta RINDEX:r {: RESULT = new ListType(lxleft, rxright, ta); :}
                   ;
 
-global_decl ::= /* TODO: completar */
+global_decl ::= GLOBAL:x identifier:i NEWLINE:n       {: RESULT = new GlobalDecl(xxleft, nxright, i); :}
               ;
 
-nonlocal_decl ::= /* TODO: completar */
+nonlocal_decl ::= NONLOCAL:x identifier:i NEWLINE:n       {: RESULT = new NonLocalDecl(xxleft, nxright, i); :}
                 ;
 
 var_def ::= typed_var:t EQ:o literal:l NEWLINE:n   {: RESULT = new VarDef(txleft, lxright, t, l); :}
@@ -351,6 +370,8 @@ stmt ::= simple_stmt:s NEWLINE:n {: RESULT = s; :}
                                                              RESULT = new IfStmt(ixleft, exright, c, t, single(e));
                                                          else
                                                              RESULT = new IfStmt(ixleft, exright, c, t, e.elseBody); :}
+       | WHILE:w expr:c COLON:d block:b               {: RESULT = new WhileStmt(wxleft, bxright, c, b); :}
+       | FOR:f identifier:id IN:in expr:c COLON:d block:b   {: RESULT = new ForStmt(fxleft, bxright, id, c, b); :}
        /* TODO: completar */
        ;
 
@@ -368,20 +389,31 @@ simple_stmt ::= PASS:p                              {:  :}
               | target:t assign:a                   {: RESULT = new AssignStmt(txleft, axright, combine_left(t, a.targets), a.value); :}
               ;
 
-opt_expr ::= /* TODO: completar */
+opt_expr ::= expr:e            {: RESULT = e; :}
            ;
 
 assign ::= EQ:o expr:e                    {: RESULT = new AssignStmt(oxleft, exright, empty(), e); :}
          | EQ:o target:t assign:a         {: RESULT = new AssignStmt(oxleft, axright, combine_left(t, a.targets), a.value); :}
          ;
 
-block ::= /* TODO: completar */
+block ::= NEWLINE INDENT stmt_list:ss DEDENT   {: RESULT = ss; :}
         ;
 
-literal ::= /* TODO: completar */ INTEGER:n        {: RESULT = new IntegerLiteral(nxleft, nxright, n); :}
+literal ::= INTEGER:n   {: RESULT = new IntegerLiteral(nxleft, nxright, n); :}
+          | NONE:n      {: RESULT = new NoneLiteral(nxleft, nxright); :}
+          | TRUE:b      {: RESULT = new BooleanLiteral(bxleft, bxright, true); :}
+          | FALSE:b     {: RESULT = new BooleanLiteral(bxleft, bxright, false); :}
+          | STRING:s    {: RESULT = new StringLiteral(sxleft, sxright, s); :}
+          | IDSTRING:s  {: RESULT = new StringLiteral(sxleft, sxright, s); :}
+
           ;
 
 expr ::= cexpr:e                              {: RESULT = e; :}
+         | expr:e1 AND:op expr:e2               {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op, e2); :}
+         | expr:e1 OR:op expr:e2                {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op, e2); :}
+         | expr:then IF expr:con ELSE expr:els
+                                                {: RESULT = new IfExpr(thenxleft, elsxright, con, then, els); :}
+         | LINDEX:l exprs:e RINDEX:r            {: RESULT = new ListExpr(lxleft, rxright, e); :}
        /* TODO: completar */
        ;
 
@@ -391,11 +423,12 @@ binary_logical ::= /* TODO: completar */
 cexpr ::= identifier:e                                {: RESULT = e; :}
         | literal:e                                   {: RESULT = e; :}
         | binary_expr:e                               {: RESULT = e; :}
-        |MINUS:m cexpr:e                              {: RESULT = new UnaryExpr(mxleft,exright,m,e); :}
-        |member_expr:m                                {: RESULT = m; :}
-        |index_expr:index                             {: RESULT = index; :}
-        |identifier:i LPAREN:l exprs:e RPAREN:r     {: RESULT = new CallExpr(ixleft,rxright,i,e); :}
-        |LPAREN:l expr:e RPAREN:r                   {: RESULT = e; :}
+        | MINUS:m cexpr:e                             {: RESULT = new UnaryExpr(mxleft,exright,m,e); :}
+        | NOT:n expr:e                                {: RESULT = new UnaryExpr(nxleft, exright, n, e); :}
+        | member_expr:m                               {: RESULT = m; :}
+        | index_expr:index                            {: RESULT = index; :}
+        | identifier:i LPAREN:l exprs:e RPAREN:r      {: RESULT = new CallExpr(ixleft,rxright,i,e); :}
+        | LPAREN:l expr:e RPAREN:r                    {: RESULT = e; :}
         /* TODO: completar */
         ;
 
@@ -412,14 +445,23 @@ exprs ::= expr:e                  {: RESULT = single(e); :}
 
 
 binary_expr ::= cexpr:e1 PLUS:op cexpr:e2            {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op, e2); :}
+              | cexpr:e1 TIMES:op cexpr:e2         {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op, e2); :}
+              | cexpr:e1 MOD:op cexpr:e2           {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
+              | cexpr:e1 EQEQ:op cexpr:e2          {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
+              | cexpr:e1 NE:op cexpr:e2            {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
+              | cexpr:e1 LEQ:op cexpr:e2           {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
+              | cexpr:e1 GEQ:op cexpr:e2           {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
+              | cexpr:e1 LT:op cexpr:e2            {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
+              | cexpr:e1 GT:op cexpr:e2            {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
+              | cexpr:e1 IS:op cexpr:e2            {: RESULT = new BinaryExpr(e1xleft, e2xright, e1, op , e2); :}
               /* TODO: completar */
               ;
 
-member_expr ::= cexpr:e DOT:dot identifier:i          {:new MemberExpr(exleft,ixright,e,i);:}
+member_expr ::= cexpr:e DOT:dot identifier:i          {: RESULT = new MemberExpr(exleft,ixright,e,i);:}
             /* TODO: completar */
               ;
 
-index_expr ::= cexpr:e identifier:i {:new IndexExpr(exleft,ixright,e,i);:}
+index_expr ::= cexpr:p LINDEX:e1 expr:e RINDEX:e2 {: RESULT = new IndexExpr(pxleft, e2xright, p, e); :}
              ;
 
 target ::= identifier:i             {:RESULT=i;:}
